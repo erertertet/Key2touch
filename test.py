@@ -9,7 +9,7 @@ from ast import literal_eval
 from utils import Const, Pointer_Info, Pointer_Touch_Info
 
 # Track pressed keys (to suppress auto-repeat) & active touches
-active_touches = {}
+active_touches: dict[str | tuple[str, ...], Pointer_Touch_Info] = {}
 touch_lock = threading.Lock()
 inited = False
 
@@ -97,17 +97,17 @@ def update_loop(interval: float = 0.05):
             inject_contacts(list(active_touches.values()))
 
 
-def on_key_event(event):
+def on_key_event(event: keyboard.KeyboardEvent):
     # TODO refactor out the key function
     """Handle keyboard events and inject touch events accordingly."""
     key = event.name
-    if key not in KEY_POSITION:
+    if key not in KEY_POSITION or key is None:
         return
 
     if event.event_type == "down":
         # ignore OS auto-repeat
         for k in active_touches.keys():
-            if key in k or k == key:
+            if (isinstance(k, tuple) and key in k) or k == key:
                 return
 
         with touch_lock:
@@ -156,7 +156,7 @@ def on_key_event(event):
 
         with touch_lock:
             # this one → UP; others → UPDATE
-            multiples_to_remove = []
+            multiples_to_remove: list[str | tuple[str, ...]] = []
 
             for k, pti in list(active_touches.items()):
                 if k == key:
