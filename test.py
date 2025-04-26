@@ -52,6 +52,27 @@ class POINTER_TOUCH_INFO(Structure):
         ("pressure",    UINT),
     ]
 
+    def __repr__(self):
+        return f"POINTER_TOUCH_INFO({self.pointerInfo.pointerId}, {self.pointerInfo.ptPixelLocation.x}, {self.pointerInfo.ptPixelLocation.y}, {self.parse_flag(self.pointerInfo.pointerFlags)})"
+
+    @staticmethod
+    def parse_flag(flag: int) -> str:
+        """Convert a flag to a human-readable string."""
+        temp = []
+        for flags, flagname in {
+            POINTER_FLAG_DOWN: "DOWN",
+            POINTER_FLAG_INRANGE: "INRANGE",
+            POINTER_FLAG_INCONTACT: "INCONTACT",
+            POINTER_FLAG_UPDATE: "UPDATE",
+            POINTER_FLAG_UP: "UP",
+            POINTER_FLAG_CANCELED: "CANCELED",
+        }.items():
+            if flag & flags:
+                temp.append(flagname)
+        return " | ".join(temp) if temp else "0"
+
+
+
 # --- Load config file ---
 parser = argparse.ArgumentParser()
 parser.add_argument("-f", "--file",)
@@ -72,6 +93,7 @@ pointer_ids = {key: idx for idx, key in enumerate(key_positions)}
 pressed_keys = set()
 active_touches = {}
 touch_lock = threading.Lock()
+inited = False
 
 # Load and initialize touch injection
 user32 = ctypes.windll.user32
@@ -97,10 +119,21 @@ def make_touch_info(key: str) -> POINTER_TOUCH_INFO:
     )
 
 def inject_contacts(contacts: list[POINTER_TOUCH_INFO]):
+    global inited
     """Batch-inject all provided contacts in one InjectTouchInput call."""
     count = len(contacts)
     if count == 0:
         return
+    
+    print(contacts)
+    if not inited:
+        print("Initializing touch injection...")
+        if not user32.InitializeTouchInjection(len(key_positions), 1):
+            raise OSError(f"InitializeTouchInjection failed: {ctypes.FormatError(ctypes.GetLastError())}")
+        inited = True
+    if count == 1 and contacts[0].pointerInfo.pointerFlags & POINTER_FLAG_UP:
+        print("final key is up")
+        inited = False
     ArrayType = POINTER_TOUCH_INFO * count
     arr = ArrayType(*contacts)
     # ByRef the first element to get POINTER_TOUCH_INFO*
@@ -116,9 +149,6 @@ def update_loop(interval: float = 0.05):
     while True:
         time.sleep(interval)
         with touch_lock:
-            # if not active_touches:
-            #     break
-            # Mark all as UPDATE
             for pti in active_touches.values():
                 pti.pointerInfo.pointerFlags = (
                     POINTER_FLAG_UPDATE | POINTER_FLAG_INRANGE | POINTER_FLAG_INCONTACT
@@ -138,8 +168,6 @@ def on_key_event(event):
         for k in pressed_keys:
             if key in k:
                 return
-
-        print(active_touches, pressed_keys)
 
         with touch_lock:
             # existing → UPDATE
@@ -168,7 +196,6 @@ def on_key_event(event):
                         del active_touches[m]
                         pressed_keys.remove(m)
                     
-                    print(active_touches, pressed_keys)
                     return
 
             # new → DOWN
@@ -180,7 +207,6 @@ def on_key_event(event):
             inject_contacts(list(active_touches.values()))
 
             pressed_keys.add(key)
-            print(active_touches, pressed_keys)
 
         # start the updater thread (if not already)
         # global updater_thread
@@ -199,7 +225,6 @@ def on_key_event(event):
             # this one → UP; others → UPDATE
             multiples_to_remove = []
 
-            print(active_touches, pressed_keys)
             for k, pti in list(active_touches.items()):
                 if k == key:
                     if len(active_touches) == 1:
@@ -230,7 +255,6 @@ def on_key_event(event):
                 del active_touches[k]
                 pressed_keys.remove(k)
 
-            print(active_touches, pressed_keys)
 
 # prepare the updater thread placeholder
 updater_thread = threading.Thread(target=update_loop, daemon=True)
