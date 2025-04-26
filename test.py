@@ -5,14 +5,10 @@ import ctypes
 from ctypes import byref
 from ctypes.wintypes import UINT, POINT, RECT, BOOL
 import keyboard
-import argparse
 from ast import literal_eval
 from utils import Const, Pointer_Info, Pointer_Touch_Info
 
-# --- Load config file ---
-
 # Track pressed keys (to suppress auto-repeat) & active touches
-pressed_keys = set()
 active_touches = {}
 touch_lock = threading.Lock()
 inited = False
@@ -91,7 +87,7 @@ def update_loop(interval: float = 0.05):
             inject_contacts(list(active_touches.values()))
 
 def on_key_event(event):
-    # TODO refactor out the key function, check if possible to merge pressed_keys and active_touches
+    # TODO refactor out the key function
     """Handle keyboard events and inject touch events accordingly."""
     key = event.name
     if key not in KEY_POSITION:
@@ -99,7 +95,7 @@ def on_key_event(event):
 
     if event.event_type == "down":
         # ignore OS auto-repeat
-        for k in pressed_keys:
+        for k in active_touches.keys():
             if key in k or k == key:
                 return
 
@@ -111,8 +107,7 @@ def on_key_event(event):
                 )
             
             for multiple_key in _multiples:
-                if key in multiple_key and set(multiple_key).issubset(pressed_keys | {key}):
-                    pressed_keys.add(multiple_key)
+                if key in multiple_key and set(multiple_key).issubset(set(active_touches.keys()) | {key}):
                     pti = make_touch_info(multiple_key)
                     pti.pointerInfo.pointerFlags = (
                         Const.down | Const.in_range | Const.in_contact
@@ -128,7 +123,6 @@ def on_key_event(event):
                     
                     for m in set(multiple_key) - {key}:
                         del active_touches[m]
-                        pressed_keys.remove(m)
                     
                     return
 
@@ -140,10 +134,9 @@ def on_key_event(event):
             active_touches[key] = pti
             inject_contacts(list(active_touches.values()))
 
-            pressed_keys.add(key)
 
     elif event.event_type == "up":
-        for k in pressed_keys:
+        for k in active_touches.keys():
             if key in k or k == key:
                 break
         else:
@@ -168,7 +161,6 @@ def on_key_event(event):
                             Const.down | Const.in_range | Const.in_contact
                         )
                         active_touches[m] = npti
-                        pressed_keys.add(m)
                 else:
                     pti.pointerInfo.pointerFlags = (
                         Const.update | Const.in_range | Const.in_contact
@@ -177,11 +169,9 @@ def on_key_event(event):
             # remove the lifted contact
             if key in active_touches:
                 del active_touches[key]
-                pressed_keys.remove(key)
 
             for k in multiples_to_remove:
                 del active_touches[k]
-                pressed_keys.remove(k)
 
 
 # TODO make this main to be directly callable from other scripts
