@@ -16,7 +16,7 @@ while True:
         print("  remove - Remove a touch event")
     
     elif cmd == "list":
-        lst_of_files = os.listdir("mapping")
+        lst_of_files = os.listdir("mappings")
         if not lst_of_files:
             print("No mapping files found.")
             continue
@@ -27,7 +27,7 @@ while True:
     elif cmd == "load":
         temp = input("Enter the name of the mapping file to load: ")
 
-        if temp not in os.listdir("mapping"):
+        if temp not in os.listdir("mappings"):
             print("File not found.")
             continue
         
@@ -38,4 +38,4 @@ while True:
             print("No mapping file loaded.")
             continue
         
-        subprocess.run(["python", "test.py" + cur_file])
+        subprocess.run(["venv/Scripts/python.exe", "test.py", "-f", cur_file])

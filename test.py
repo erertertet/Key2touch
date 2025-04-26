@@ -7,6 +7,7 @@ from ctypes.wintypes import UINT, INT, HANDLE, HWND, POINT, RECT, DWORD, BOOL
 import keyboard
 import argparse
 from ast import literal_eval
+import sys
 
 # --- WinAPI constants ---
 PT_TOUCH               = 0x00000002
