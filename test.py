@@ -11,6 +11,7 @@ touch_lock = threading.Lock()
 
 # Load and initialize touch injection
 
+
 def update_loop(interval: float = 0.05):
     """
     While any keys are held, send UPDATE frames every `interval` seconds
@@ -118,7 +119,9 @@ def on_key_event(event: keyboard.KeyboardEvent):
             for k in multiples_to_remove:
                 del active_touches[k]
 
+
 key_position: dict[str | tuple[str, ...], tuple[int, int]] = {}
+
 
 # TODO make this main to be directly callable from other scripts
 def main(mapping_file: str, target: str):
@@ -127,7 +130,7 @@ def main(mapping_file: str, target: str):
 
     FILENAME = mapping_file
     TARGET = target
-    
+
     key_position = literal_eval(open(f"mappings/{FILENAME}", "r").read())
 
     _multiples = {key for key in key_position.keys() if isinstance(key, tuple)}
