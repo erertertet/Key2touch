@@ -92,8 +92,8 @@ def inject_contacts(
         return
 
     # TODO uncomment this when using in-game
-    # if not is_foreground_target(target):
-    #     return
+    if target != "" and not is_foreground_target(target):
+        return
 
     cont_list = list(contacts.values())
 

@@ -2,6 +2,8 @@
 import ctypes
 from ctypes.wintypes import POINT
 import time
+import os
+
 def get_mouse_position() -> tuple[int, int]:
     """Return the current cursor position as (x, y)."""
     pt = POINT()
@@ -24,20 +26,31 @@ def get_mouse_click_position() -> tuple[int, int]:
     wait_for_mouse_click()
     return get_mouse_position()
 
-print("press Ctrl+C to exit")
-name = input("name of the mapping to create: ")
-mapper = dict()
+def main():
+    print("press Ctrl+C to exit")
+    while True:
+        name = input("name of the mapping to create: ")
+        if os.path.exists(f"mappings/{name}.txt"):
+            print("File already exists, please choose a different name.")
+            continue
+        else:
+            break
 
-while True:
-    key = input("Enter the key(s) to map: ")
-    print("click to confirm the position")
-    if key == 'done':
-        break
+    mapper: dict[str | tuple[str, ...], tuple[int, int]] = dict()
 
-    if len(key) > 1:
-        mapper[tuple(key)] = get_mouse_click_position()
-    else:
-        mapper[key] = get_mouse_click_position()
+    while True:
+        key = input("Enter the key(s) to map: ")
+        print("click to confirm the position")
+        if key == 'done':
+            break
 
-with open(f"mappings/{name}.txt", "w") as f:
-    f.write(f"{mapper}")
+        if len(key) > 1:
+            mapper[tuple(key)] = get_mouse_click_position()
+        else:
+            mapper[key] = get_mouse_click_position()
+
+    with open(f"mappings/{name}.txt", "w") as f:
+        f.write(f"{mapper}")
+
+if __name__ == "__main__":
+    main()

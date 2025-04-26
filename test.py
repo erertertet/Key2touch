@@ -121,9 +121,8 @@ ending = False
 
 def main(mapping_file: str, target: str):
     """Main function to set up the touch injection and keyboard hooks."""
-    global key_position, TARGET, FILENAME, _multiples, pointer_ids, main_thread
+    global key_position, TARGET, _multiples, pointer_ids, main_thread
 
-    FILENAME = mapping_file
     TARGET = target
 
     main_thread = threading.current_thread()

@@ -1,8 +1,13 @@
 import os
 import test
+import writer
+import json
 
 cur_file = None
 MAPPER = "test.py"
+
+if not os.path.exists("mappings"):
+    os.mkdir("mappings")
 
 while True:
     cmd = input("Enter command: ")
@@ -35,4 +40,33 @@ while True:
     
     elif cmd == "start":
         print("press Ctrl+Q to stop the mapper")
-        test.main("shadow.txt", "Shadow Fight 2")
+        filename = input("Enter the name of the mapping file to start: ")
+        if filename not in os.listdir("mappings"):
+            print("File not found.")
+            continue
+        target = input("Enter the target application name: ")
+
+        with open("quickstart.json", "w") as f:
+            json.dump({"filename": filename, "target": target}, f)
+
+        test.main(filename, target)
+    
+    elif cmd == "qs":
+        if not os.path.exists("quickstart.json"):
+            print("No quickstart file found.")
+            continue
+
+        with open("quickstart.json", "r") as f:
+            data = json.load(f)
+
+        filename = data["filename"]
+        target = data["target"]
+
+        if filename not in os.listdir("mappings"):
+            print("File not found.")
+            continue
+
+        test.main(filename, target)
+    
+    elif cmd == "map":
+        writer.main()
