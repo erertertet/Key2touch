@@ -26,18 +26,19 @@ def init_values(key2pos: dict[str | tuple[str, ...], tuple[int, int]]):
     pointer_ids = {key: idx for idx, key in enumerate(key2pos)}
 
 
-def is_foreground_target() -> bool:
+def is_foreground_target(target: str) -> bool:
     hwnd = user32.GetForegroundWindow()
     length = user32.GetWindowTextLengthW(hwnd)
     buf = ctypes.create_unicode_buffer(length + 1)
     user32.GetWindowTextW(hwnd, buf, length + 1)
-    return buf.value == TARGET
+    return buf.value == target
 
 
-def make_touch_info(key: str | tuple[str, ...], flags: int) -> Pointer_Touch_Info:
+def make_touch_info(
+    key: str | tuple[str, ...], flags: int, pos: tuple[int, int], pid: int
+) -> Pointer_Touch_Info:
     """Create a POINTER_TOUCH_INFO for key’s mapped position."""
-    x, y = KEY_POSITION[key]
-    pid = pointer_ids[key]
+    x, y = pos
     pi = Pointer_Info(
         pointerFlags=flags,
         pointerType=Const.pt_touch,
@@ -52,7 +53,9 @@ def make_touch_info(key: str | tuple[str, ...], flags: int) -> Pointer_Touch_Inf
     )
 
 
-def inject_contacts(contacts: dict[str | tuple[str, ...], Pointer_Touch_Info]):
+def inject_contacts(
+    contacts: dict[str | tuple[str, ...], Pointer_Touch_Info], keycount: int
+):
     global inited
     """Batch-inject all provided contacts in one InjectTouchInput call."""
     count = len(contacts)
@@ -60,13 +63,13 @@ def inject_contacts(contacts: dict[str | tuple[str, ...], Pointer_Touch_Info]):
         return
 
     # TODO uncomment this when using in-game
-    # if not is_foreground_target():
+    # if not is_foreground_target(TARGET):
     #     return
 
     cont_list = list(contacts.values())
 
     if not inited:
-        if not user32.InitializeTouchInjection(len(KEY_POSITION), 1):
+        if not user32.InitializeTouchInjection(keycount, 1):
             raise OSError(
                 (
                     "InitializeTouchInjection failed: ",
@@ -97,7 +100,7 @@ def update_loop(interval: float = 0.05):
                 pti.pointerInfo.pointerFlags = (
                     Const.update | Const.in_range | Const.in_contact
                 )
-            inject_contacts(active_touches)
+            inject_contacts(active_touches, len(KEY_POSITION))
 
 
 def on_key_event(event: keyboard.KeyboardEvent):
@@ -125,8 +128,10 @@ def on_key_event(event: keyboard.KeyboardEvent):
                     set(active_touches.keys()) | {key}
                 ):
                     active_touches[multiple_key] = make_touch_info(
-                        multiple_key, 
-                        (Const.down | Const.in_range | Const.in_contact)
+                        multiple_key,
+                        (Const.down | Const.in_range | Const.in_contact),
+                        KEY_POSITION[multiple_key],
+                        pointer_ids[multiple_key],
                     )
 
                     for m in set(multiple_key) - {key}:
@@ -134,7 +139,7 @@ def on_key_event(event: keyboard.KeyboardEvent):
                             Const.canceled | Const.up
                         )
 
-                    inject_contacts(active_touches)
+                    inject_contacts(active_touches, len(KEY_POSITION))
 
                     for m in set(multiple_key) - {key}:
                         del active_touches[m]
@@ -143,9 +148,12 @@ def on_key_event(event: keyboard.KeyboardEvent):
 
             # new → DOWN
             active_touches[key] = make_touch_info(
-                key, (Const.down | Const.in_range | Const.in_contact)
+                key,
+                (Const.down | Const.in_range | Const.in_contact),
+                KEY_POSITION[key],
+                pointer_ids[key],
             )
-            inject_contacts(active_touches)
+            inject_contacts(active_touches, len(KEY_POSITION))
 
     elif event.event_type == "up":
         for k in active_touches.keys():
@@ -169,13 +177,16 @@ def on_key_event(event: keyboard.KeyboardEvent):
                     multiples_to_remove.append(k)
                     for m in set(k) - {key}:
                         active_touches[m] = make_touch_info(
-                            m, (Const.down | Const.in_range | Const.in_contact)
+                            m,
+                            (Const.down | Const.in_range | Const.in_contact),
+                            KEY_POSITION[m],
+                            pointer_ids[m],
                         )
                 else:
                     pti.pointerInfo.pointerFlags = (
                         Const.update | Const.in_range | Const.in_contact
                     )
-            inject_contacts(active_touches)
+            inject_contacts(active_touches, len(KEY_POSITION))
             # remove the lifted contact
             if key in active_touches:
                 del active_touches[key]
