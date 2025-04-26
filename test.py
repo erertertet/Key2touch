@@ -5,13 +5,6 @@ import keyboard
 from ast import literal_eval
 from utils import Const, Pointer_Touch_Info, inject_contacts, make_touch_info
 
-# Track pressed keys (to suppress auto-repeat) & active touches
-active_touches: dict[str | tuple[str, ...], Pointer_Touch_Info] = {}
-touch_lock = threading.Lock()
-
-# Load and initialize touch injection
-
-
 def update_loop(interval: float = 0.05):
     """
     While any keys are held, send UPDATE frames every `interval` seconds
@@ -121,7 +114,8 @@ def on_key_event(event: keyboard.KeyboardEvent):
 
 
 key_position: dict[str | tuple[str, ...], tuple[int, int]] = {}
-
+active_touches: dict[str | tuple[str, ...], Pointer_Touch_Info] = {}
+touch_lock = threading.Lock()
 
 # TODO make this main to be directly callable from other scripts
 def main(mapping_file: str, target: str):
