@@ -8,48 +8,53 @@ import keyboard
 import argparse
 from ast import literal_eval
 import sys
+from enum import IntEnum
+# import utils
 
 # --- WinAPI constants ---
-PT_TOUCH               = 0x00000002
-POINTER_FLAG_DOWN      = 0x00010000
-POINTER_FLAG_INRANGE   = 0x00000002
-POINTER_FLAG_INCONTACT = 0x00000004
-POINTER_FLAG_UPDATE    = 0x00020000
-POINTER_FLAG_UP        = 0x00040000
-TOUCH_MASK_ALL         = 0x00000007
-TOUCH_FLAG_NONE        = 0x00000000
-POINTER_FLAG_CANCELED  = 0x00008000
+
+class Const(IntEnum):
+    """WinAPI constants."""
+    pt_touch   = 0x00000002
+    down       = 0x00010000
+    in_range   = 0x00000002
+    in_contact = 0x00000004
+    update     = 0x00020000
+    up         = 0x00040000
+    mask_all   = 0x00000007
+    none       = 0x00000000
+    canceled   = 0x00008000
 
 # --- ctypes STRUCTs ---
-class POINTER_INFO(Structure):
+class Pointer_Info(Structure):
     _fields_ = [
-        ("pointerType",      UINT),
-        ("pointerId",        UINT),
-        ("frameId",          UINT),
-        ("pointerFlags",     INT),
-        ("sourceDevice",     HANDLE),
-        ("hwndTarget",       HWND),
-        ("ptPixelLocation",  POINT),
-        ("ptHimetricLocation", POINT),
-        ("ptPixelLocationRaw", POINT),
+        ("pointerType",           UINT),
+        ("pointerId",             UINT),
+        ("frameId",               UINT),
+        ("pointerFlags",          INT),
+        ("sourceDevice",          HANDLE),
+        ("hwndTarget",            HWND),
+        ("ptPixelLocation",       POINT),
+        ("ptHimetricLocation",    POINT),
+        ("ptPixelLocationRaw",    POINT),
         ("ptHimetricLocationRaw", POINT),
-        ("dwTime",           DWORD),
-        ("historyCount",     UINT),
-        ("inputData",        INT),
-        ("dwKeyStates",      DWORD),
-        ("PerformanceCount", ctypes.c_uint64),
-        ("ButtonChangeType", INT),
+        ("dwTime",                DWORD),
+        ("historyCount",          UINT),
+        ("inputData",             INT),
+        ("dwKeyStates",           DWORD),
+        ("PerformanceCount",      ctypes.c_uint64),
+        ("ButtonChangeType",      INT),
     ]
 
-class POINTER_TOUCH_INFO(Structure):
+class Pointer_Touch_Info(Structure):
     _fields_ = [
-        ("pointerInfo", POINTER_INFO),
-        ("touchFlags",  INT),
-        ("touchMask",   INT),
-        ("rcContact",   RECT),
+        ("pointerInfo",  Pointer_Info),
+        ("touchFlags",   INT),
+        ("touchMask",    INT),
+        ("rcContact",    RECT),
         ("rcContactRaw", RECT),
-        ("orientation", UINT),
-        ("pressure",    UINT),
+        ("orientation",  UINT),
+        ("pressure",     UINT),
     ]
 
     def __repr__(self):
@@ -60,12 +65,12 @@ class POINTER_TOUCH_INFO(Structure):
         """Convert a flag to a human-readable string."""
         temp = []
         for flags, flagname in {
-            POINTER_FLAG_DOWN: "DOWN",
-            POINTER_FLAG_INRANGE: "INRANGE",
-            POINTER_FLAG_INCONTACT: "INCONTACT",
-            POINTER_FLAG_UPDATE: "UPDATE",
-            POINTER_FLAG_UP: "UP",
-            POINTER_FLAG_CANCELED: "CANCELED",
+            Const.down: "DOWN",
+            Const.in_range: "INRANGE",
+            Const.in_contact: "INCONTACT",
+            Const.update: "UPDATE",
+            Const.up: "UP",
+            Const.canceled: "CANCELED",
         }.items():
             if flag & flags:
                 temp.append(flagname)
@@ -95,7 +100,7 @@ inited = False
 
 # Load and initialize touch injection
 user32 = ctypes.windll.user32
-user32.InjectTouchInput.argtypes = (UINT, ctypes.POINTER(POINTER_TOUCH_INFO))
+user32.InjectTouchInput.argtypes = (UINT, ctypes.POINTER(Pointer_Touch_Info))
 user32.InjectTouchInput.restype  = BOOL
 
 def is_foreground_target() -> bool:
@@ -105,39 +110,40 @@ def is_foreground_target() -> bool:
     user32.GetWindowTextW(hwnd, buf, length + 1)
     return buf.value == TARGET
 
-def make_touch_info(key: str) -> POINTER_TOUCH_INFO:
+def make_touch_info(key: str) -> Pointer_Touch_Info:
     """Create a POINTER_TOUCH_INFO for key’s mapped position."""
     x, y = KEY_POSITION[key]
     pid = pointer_ids[key]
-    pi = POINTER_INFO(
-        pointerType=PT_TOUCH,
+    pi = Pointer_Info(
+        pointerType=Const.pt_touch,
         pointerId=pid,
         ptPixelLocation=POINT(x, y)  # other fields default to zero
     )
-    return POINTER_TOUCH_INFO(
+    return Pointer_Touch_Info(
         pointerInfo=pi,
-        touchFlags=TOUCH_FLAG_NONE,
-        touchMask=TOUCH_MASK_ALL,
+        touchFlags=Const.none,
+        touchMask=Const.mask_all,
         rcContact=RECT(x-5, y-5, x+5, y+5)  # contact area
     )
 
-def inject_contacts(contacts: list[POINTER_TOUCH_INFO]):
+def inject_contacts(contacts: list[Pointer_Touch_Info]):
     global inited
     """Batch-inject all provided contacts in one InjectTouchInput call."""
     count = len(contacts)
     if count == 0:
         return
 
-    if not is_foreground_target():
-        return
+    # TODO uncomment this when using in-game
+    # if not is_foreground_target():
+    #     return
 
     if not inited:
         if not user32.InitializeTouchInjection(len(KEY_POSITION), 1):
             raise OSError(f"InitializeTouchInjection failed: {ctypes.FormatError(ctypes.GetLastError())}")
         inited = True
-    if count == 1 and contacts[0].pointerInfo.pointerFlags & POINTER_FLAG_UP:
+    if count == 1 and contacts[0].pointerInfo.pointerFlags & Const.up:
         inited = False
-    ArrayType = POINTER_TOUCH_INFO * count
+    ArrayType = Pointer_Touch_Info * count
     arr = ArrayType(*contacts)
     # ByRef the first element to get POINTER_TOUCH_INFO*
     if not user32.InjectTouchInput(count, byref(arr[0])):
@@ -154,7 +160,7 @@ def update_loop(interval: float = 0.05):
         with touch_lock:
             for pti in active_touches.values():
                 pti.pointerInfo.pointerFlags = (
-                    POINTER_FLAG_UPDATE | POINTER_FLAG_INRANGE | POINTER_FLAG_INCONTACT
+                    Const.update | Const.in_range | Const.in_contact
                 )
             inject_contacts(list(active_touches.values()))
 
@@ -176,7 +182,7 @@ def on_key_event(event):
             # existing → UPDATE
             for pti in active_touches.values():
                 pti.pointerInfo.pointerFlags = (
-                    POINTER_FLAG_UPDATE | POINTER_FLAG_INRANGE | POINTER_FLAG_INCONTACT
+                    Const.update | Const.in_range | Const.in_contact
                 )
             
             for multiple_key in _multiples:
@@ -184,13 +190,13 @@ def on_key_event(event):
                     pressed_keys.add(multiple_key)
                     pti = make_touch_info(multiple_key)
                     pti.pointerInfo.pointerFlags = (
-                        POINTER_FLAG_DOWN | POINTER_FLAG_INRANGE | POINTER_FLAG_INCONTACT
+                        Const.down | Const.in_range | Const.in_contact
                     )
                     active_touches[multiple_key] = pti
 
                     for m in set(multiple_key) - {key}:
                         active_touches[m].pointerInfo.pointerFlags = (
-                            POINTER_FLAG_CANCELED | POINTER_FLAG_UP
+                            Const.canceled | Const.up
                         )
                     
                     inject_contacts(list(active_touches.values()))
@@ -204,7 +210,7 @@ def on_key_event(event):
             # new → DOWN
             pti = make_touch_info(key)
             pti.pointerInfo.pointerFlags = (
-                POINTER_FLAG_DOWN | POINTER_FLAG_INRANGE | POINTER_FLAG_INCONTACT
+                Const.down | Const.in_range | Const.in_contact
             )
             active_touches[key] = pti
             inject_contacts(list(active_touches.values()))
@@ -225,22 +231,22 @@ def on_key_event(event):
             for k, pti in list(active_touches.items()):
                 if k == key:
                     if len(active_touches) == 1:
-                        pti.pointerInfo.pointerFlags = POINTER_FLAG_UP | POINTER_FLAG_INRANGE
+                        pti.pointerInfo.pointerFlags = Const.up | Const.in_range
                     else:
-                        pti.pointerInfo.pointerFlags = POINTER_FLAG_UP | POINTER_FLAG_CANCELED
+                        pti.pointerInfo.pointerFlags = Const.up | Const.canceled
                 elif key in k:
-                    pti.pointerInfo.pointerFlags = POINTER_FLAG_CANCELED | POINTER_FLAG_UP
+                    pti.pointerInfo.pointerFlags = Const.canceled | Const.up
                     multiples_to_remove.append(k)
                     for m in set(k) - {key}:
                         npti = make_touch_info(m)
                         npti.pointerInfo.pointerFlags = (
-                            POINTER_FLAG_DOWN | POINTER_FLAG_INRANGE | POINTER_FLAG_INCONTACT
+                            Const.down | Const.in_range | Const.in_contact
                         )
                         active_touches[m] = npti
                         pressed_keys.add(m)
                 else:
                     pti.pointerInfo.pointerFlags = (
-                        POINTER_FLAG_UPDATE | POINTER_FLAG_INRANGE | POINTER_FLAG_INCONTACT
+                        Const.update | Const.in_range | Const.in_contact
                     )
             inject_contacts(list(active_touches.values()))
             # remove the lifted contact
