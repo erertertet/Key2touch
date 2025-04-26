@@ -15,6 +15,7 @@ POINTER_FLAG_UPDATE    = 0x00020000
 POINTER_FLAG_UP        = 0x00040000
 TOUCH_MASK_ALL         = 0x00000007
 TOUCH_FLAG_NONE        = 0x00000000
+POINTER_FLAG_CANCELED  = 0x00008000
 
 # --- ctypes STRUCTs ---
 class POINTER_INFO(Structure):
@@ -156,7 +157,10 @@ def on_key_event(event):
             # this one → UP; others → UPDATE
             for k, pti in list(active_touches.items()):
                 if k == key:
-                    pti.pointerInfo.pointerFlags = POINTER_FLAG_UP | POINTER_FLAG_INRANGE
+                    if len(active_touches) == 1:
+                        pti.pointerInfo.pointerFlags = POINTER_FLAG_UP | POINTER_FLAG_INRANGE
+                    else:
+                        pti.pointerInfo.pointerFlags = POINTER_FLAG_UP | POINTER_FLAG_CANCELED
                 else:
                     pti.pointerInfo.pointerFlags = (
                         POINTER_FLAG_UPDATE | POINTER_FLAG_INRANGE | POINTER_FLAG_INCONTACT
