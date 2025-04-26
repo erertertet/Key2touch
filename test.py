@@ -5,6 +5,8 @@ import ctypes
 from ctypes import Structure, byref
 from ctypes.wintypes import UINT, INT, HANDLE, HWND, POINT, RECT, DWORD, BOOL
 import keyboard
+import argparse
+from ast import literal_eval
 
 # --- WinAPI constants ---
 PT_TOUCH               = 0x00000002
@@ -49,15 +51,16 @@ class POINTER_TOUCH_INFO(Structure):
         ("pressure",    UINT),
     ]
 
+# --- Load config file ---
+parser = argparse.ArgumentParser()
+parser.add_argument("-f", "--file",)
+
+
+args = parser.parse_args()
+filename = args.file
 
 # --- Your key→screen‐coords mapping ---
-key_positions = {
-    "a": (300, 500),
-    "s": (400, 500),
-    "d": (500, 500),
-    "f": (600, 500),
-    ("a", "s"): (300, 600),
-}
+key_positions = literal_eval(open(f"mappings/{filename}", "r").read())
 
 _multiples = {key: pos for key, pos in key_positions.items() if isinstance(key, tuple)}
 
