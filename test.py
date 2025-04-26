@@ -2,33 +2,26 @@
 import threading
 import time
 import ctypes
-from ctypes import Structure, byref
-from ctypes.wintypes import UINT, INT, HANDLE, HWND, POINT, RECT, DWORD, BOOL
+from ctypes import byref
+from ctypes.wintypes import UINT, POINT, RECT, BOOL
 import keyboard
 import argparse
 from ast import literal_eval
-import sys
-from enum import IntEnum
 from utils import Const, Pointer_Info, Pointer_Touch_Info
-
-# --- WinAPI constants ---
 
 # --- Load config file ---
 parser = argparse.ArgumentParser()
 parser.add_argument("-f", "--file",)
 
 args = parser.parse_args()
-filename = args.file
 
-KEY_POSITION = literal_eval(open(f"mappings/{filename}", "r").read())
+FILENAME = args.file
+KEY_POSITION = literal_eval(open(f"mappings/{FILENAME}", "r").read())
 TARGET = "Shadow Fight 2"
 
-_multiples = {key: pos for key, pos in KEY_POSITION.items() if isinstance(key, tuple)}
-
-# Unique pointer ID per key
-pointer_ids = {key: idx for idx, key in enumerate(KEY_POSITION)}
-
 # Track pressed keys (to suppress auto-repeat) & active touches
+_multiples = {key for key, pos in KEY_POSITION.items() if isinstance(key, tuple)}
+pointer_ids = {key: idx for idx, key in enumerate(KEY_POSITION)}
 pressed_keys = set()
 active_touches = {}
 touch_lock = threading.Lock()
@@ -107,11 +100,8 @@ def on_key_event(event):
 
     if event.event_type == "down":
         # ignore OS auto-repeat
-        if key in pressed_keys:
-            return
-        
         for k in pressed_keys:
-            if key in k:
+            if key in k or k == key:
                 return
 
         with touch_lock:
@@ -195,12 +185,15 @@ def on_key_event(event):
                 pressed_keys.remove(k)
 
 
-# prepare the updater thread placeholder
-updater_thread = threading.Thread(target=update_loop, daemon=True)
-updater_thread.start()
+# TODO make this main to be directly callable from other scripts
+def main(mapping_file: str = FILENAME, target: str = TARGET):
+    # prepare the updater thread placeholder
+    updater_thread = threading.Thread(target=update_loop, daemon=True)
+    updater_thread.start()
 
-# hook into global keyboard events
-keyboard.hook(on_key_event)
+    # hook into global keyboard events
+    keyboard.hook(on_key_event)
+    keyboard.wait()
 
-print("Touch-injection mapping active. Press & hold mapped keys (a, s, d, f). Ctrl+C to quit.")
-keyboard.wait()
+if __name__ == "__main__":
+    main()

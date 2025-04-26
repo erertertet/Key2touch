@@ -1,5 +1,6 @@
 import os
 import subprocess
+import test
 
 cur_file = None
 MAPPER = "test.py"
@@ -34,8 +35,5 @@ while True:
         cur_file = temp
     
     elif cmd == "start":
-        if cur_file is None:
-            print("No mapping file loaded.")
-            continue
-        
-        subprocess.run(["venv/Scripts/python.exe", "test.py", "-f", cur_file])
+        # TODO: not quite working yet
+        test.main()
