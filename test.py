@@ -10,18 +10,8 @@ from ast import literal_eval
 from utils import Const, Pointer_Info, Pointer_Touch_Info
 
 # --- Load config file ---
-parser = argparse.ArgumentParser()
-parser.add_argument("-f", "--file",)
-
-args = parser.parse_args()
-
-FILENAME = args.file
-KEY_POSITION = literal_eval(open(f"mappings/{FILENAME}", "r").read())
-TARGET = "Shadow Fight 2"
 
 # Track pressed keys (to suppress auto-repeat) & active touches
-_multiples = {key for key, pos in KEY_POSITION.items() if isinstance(key, tuple)}
-pointer_ids = {key: idx for idx, key in enumerate(KEY_POSITION)}
 pressed_keys = set()
 active_touches = {}
 touch_lock = threading.Lock()
@@ -31,6 +21,12 @@ inited = False
 user32 = ctypes.windll.user32
 user32.InjectTouchInput.argtypes = (UINT, ctypes.POINTER(Pointer_Touch_Info))
 user32.InjectTouchInput.restype  = BOOL
+
+def init_values(key2pos: dict[str, tuple[int, int]]):
+    """Initialize global variables for touch injection."""
+    global _multiples, pointer_ids
+    _multiples = {key for key, pos in key2pos.items() if isinstance(key, tuple)}
+    pointer_ids = {key: idx for idx, key in enumerate(key2pos)}
 
 def is_foreground_target() -> bool:
     hwnd = user32.GetForegroundWindow()
@@ -84,6 +80,7 @@ def update_loop(interval: float = 0.05):
     While any keys are held, send UPDATE frames every `interval` seconds
     so the system doesn’t cancel your press-and-hold.
     """
+    # TODO: quit the loop depending on main worker thread
     while True:
         time.sleep(interval)
         with touch_lock:
@@ -94,6 +91,8 @@ def update_loop(interval: float = 0.05):
             inject_contacts(list(active_touches.values()))
 
 def on_key_event(event):
+    # TODO refactor out the key function, check if possible to merge pressed_keys and active_touches
+    """Handle keyboard events and inject touch events accordingly."""
     key = event.name
     if key not in KEY_POSITION:
         return
@@ -186,7 +185,15 @@ def on_key_event(event):
 
 
 # TODO make this main to be directly callable from other scripts
-def main(mapping_file: str = FILENAME, target: str = TARGET):
+def main(mapping_file: str, target: str):
+    """Main function to set up the touch injection and keyboard hooks."""
+    global KEY_POSITION, TARGET, FILENAME
+
+    FILENAME = mapping_file
+    KEY_POSITION = literal_eval(open(f"mappings/{FILENAME}", "r").read())
+    TARGET = target
+
+    init_values(KEY_POSITION)
     # prepare the updater thread placeholder
     updater_thread = threading.Thread(target=update_loop, daemon=True)
     updater_thread.start()
@@ -196,4 +203,4 @@ def main(mapping_file: str = FILENAME, target: str = TARGET):
     keyboard.wait()
 
 if __name__ == "__main__":
-    main()
+    main("shadow.txt", "Shadow Fight 2")
