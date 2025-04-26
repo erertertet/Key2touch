@@ -112,8 +112,8 @@ def update_loop(interval: float = 0.05):
     while True:
         time.sleep(interval)
         with touch_lock:
-            if not active_touches:
-                break
+            # if not active_touches:
+            #     break
             # Mark all as UPDATE
             for pti in active_touches.values():
                 pti.pointerInfo.pointerFlags = (
@@ -179,10 +179,10 @@ def on_key_event(event):
             print(active_touches, pressed_keys)
 
         # start the updater thread (if not already)
-        global updater_thread
-        if not updater_thread.is_alive():
-            updater_thread = threading.Thread(target=update_loop, daemon=True)
-            updater_thread.start()
+        # global updater_thread
+        # if not updater_thread.is_alive():
+        #     updater_thread = threading.Thread(target=update_loop, daemon=True)
+        #     updater_thread.start()
 
     elif event.event_type == "up":
         for k in pressed_keys:
@@ -230,6 +230,7 @@ def on_key_event(event):
 
 # prepare the updater thread placeholder
 updater_thread = threading.Thread(target=update_loop, daemon=True)
+updater_thread.start()
 
 # hook into global keyboard events
 keyboard.hook(on_key_event)
