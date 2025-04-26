@@ -81,7 +81,9 @@ def is_foreground_target(target: str) -> bool:
 inited = False
 
 def inject_contacts(
-    contacts: dict[str | tuple[str, ...], Pointer_Touch_Info], keycount: int
+    contacts: dict[str | tuple[str, ...], Pointer_Touch_Info], 
+    keycount: int,
+    target: str
 ):
     global inited
     """Batch-inject all provided contacts in one InjectTouchInput call."""
@@ -90,7 +92,7 @@ def inject_contacts(
         return
 
     # TODO uncomment this when using in-game
-    # if not is_foreground_target(TARGET):
+    # if not is_foreground_target(target):
     #     return
 
     cont_list = list(contacts.values())
@@ -114,7 +116,7 @@ def inject_contacts(
         print(f"InjectTouchInput failed: {ctypes.FormatError(err)}")
 
 def make_touch_info(
-    key: str | tuple[str, ...], flags: int, pos: tuple[int, int], pid: int
+    flags: int, pos: tuple[int, int], pid: int
 ) -> Pointer_Touch_Info:
     """Create a POINTER_TOUCH_INFO for key’s mapped position."""
     x, y = pos

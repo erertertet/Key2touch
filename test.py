@@ -5,6 +5,7 @@ import keyboard
 from ast import literal_eval
 from utils import Const, Pointer_Touch_Info, inject_contacts, make_touch_info
 
+
 def update_loop(interval: float = 0.05):
     """
     While any keys are held, send UPDATE frames every `interval` seconds
@@ -13,12 +14,14 @@ def update_loop(interval: float = 0.05):
     # TODO: quit the loop depending on main worker thread
     while True:
         time.sleep(interval)
+        if main_thread is None or not main_thread.is_alive():
+            break
         with touch_lock:
             for pti in active_touches.values():
                 pti.pointerInfo.pointerFlags = (
                     Const.update | Const.in_range | Const.in_contact
                 )
-            inject_contacts(active_touches, len(key_position))
+            inject_contacts(active_touches, len(key_position), TARGET)
 
 
 def on_key_event(event: keyboard.KeyboardEvent):
@@ -46,7 +49,6 @@ def on_key_event(event: keyboard.KeyboardEvent):
                     set(active_touches.keys()) | {key}
                 ):
                     active_touches[multiple_key] = make_touch_info(
-                        multiple_key,
                         (Const.down | Const.in_range | Const.in_contact),
                         key_position[multiple_key],
                         pointer_ids[multiple_key],
@@ -57,7 +59,7 @@ def on_key_event(event: keyboard.KeyboardEvent):
                             Const.canceled | Const.up
                         )
 
-                    inject_contacts(active_touches, len(key_position))
+                    inject_contacts(active_touches, len(key_position), TARGET)
 
                     for m in set(multiple_key) - {key}:
                         del active_touches[m]
@@ -66,12 +68,11 @@ def on_key_event(event: keyboard.KeyboardEvent):
 
             # new → DOWN
             active_touches[key] = make_touch_info(
-                key,
                 (Const.down | Const.in_range | Const.in_contact),
                 key_position[key],
                 pointer_ids[key],
             )
-            inject_contacts(active_touches, len(key_position))
+            inject_contacts(active_touches, len(key_position), TARGET)
 
     elif event.event_type == "up":
         for k in active_touches.keys():
@@ -95,7 +96,6 @@ def on_key_event(event: keyboard.KeyboardEvent):
                     multiples_to_remove.append(k)
                     for m in set(k) - {key}:
                         active_touches[m] = make_touch_info(
-                            m,
                             (Const.down | Const.in_range | Const.in_contact),
                             key_position[m],
                             pointer_ids[m],
@@ -104,7 +104,7 @@ def on_key_event(event: keyboard.KeyboardEvent):
                     pti.pointerInfo.pointerFlags = (
                         Const.update | Const.in_range | Const.in_contact
                     )
-            inject_contacts(active_touches, len(key_position))
+            inject_contacts(active_touches, len(key_position), TARGET)
             # remove the lifted contact
             if key in active_touches:
                 del active_touches[key]
@@ -116,16 +116,19 @@ def on_key_event(event: keyboard.KeyboardEvent):
 key_position: dict[str | tuple[str, ...], tuple[int, int]] = {}
 active_touches: dict[str | tuple[str, ...], Pointer_Touch_Info] = {}
 touch_lock = threading.Lock()
+main_thread: threading.Thread | None = None
 
-# TODO make this main to be directly callable from other scripts
+
 def main(mapping_file: str, target: str):
     """Main function to set up the touch injection and keyboard hooks."""
-    global key_position, TARGET, FILENAME, _multiples, pointer_ids
+    global key_position, TARGET, FILENAME, _multiples, pointer_ids, main_thread
 
     FILENAME = mapping_file
     TARGET = target
 
-    key_position = literal_eval(open(f"mappings/{FILENAME}", "r").read())
+    main_thread = threading.current_thread()
+
+    key_position = literal_eval(open(f"mappings/{mapping_file}", "r").read())
 
     _multiples = {key for key in key_position.keys() if isinstance(key, tuple)}
     pointer_ids = {key: idx for idx, key in enumerate(key_position)}
