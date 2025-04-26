@@ -49,6 +49,7 @@ class POINTER_TOUCH_INFO(Structure):
         ("pressure",    UINT),
     ]
 
+
 # --- Your key→screen‐coords mapping ---
 key_positions = {
     "a": (300, 500),
@@ -129,6 +130,12 @@ def on_key_event(event):
         # ignore OS auto-repeat
         if key in pressed_keys:
             return
+        
+        for k in pressed_keys:
+            if key in k:
+                return
+
+        print(active_touches, pressed_keys)
 
         with touch_lock:
             # existing → UPDATE
@@ -146,6 +153,20 @@ def on_key_event(event):
                     )
                     active_touches[multiple_key] = pti
 
+                    for m in set(multiple_key) - {key}:
+                        active_touches[m].pointerInfo.pointerFlags = (
+                            POINTER_FLAG_CANCELED | POINTER_FLAG_UP
+                        )
+                    
+                    inject_contacts(list(active_touches.values()))
+                    
+                    for m in set(multiple_key) - {key}:
+                        del active_touches[m]
+                        pressed_keys.remove(m)
+                    
+                    print(active_touches, pressed_keys)
+                    return
+
             # new → DOWN
             pti = make_touch_info(key)
             pti.pointerInfo.pointerFlags = (
@@ -155,6 +176,7 @@ def on_key_event(event):
             inject_contacts(list(active_touches.values()))
 
             pressed_keys.add(key)
+            print(active_touches, pressed_keys)
 
         # start the updater thread (if not already)
         global updater_thread
@@ -163,38 +185,48 @@ def on_key_event(event):
             updater_thread.start()
 
     elif event.event_type == "up":
-        if key not in pressed_keys:
+        for k in pressed_keys:
+            if key in k or k == key:
+                break
+        else:
             return
 
         with touch_lock:
             # this one → UP; others → UPDATE
             multiples_to_remove = []
 
+            print(active_touches, pressed_keys)
             for k, pti in list(active_touches.items()):
                 if k == key:
                     if len(active_touches) == 1:
                         pti.pointerInfo.pointerFlags = POINTER_FLAG_UP | POINTER_FLAG_INRANGE
                     else:
                         pti.pointerInfo.pointerFlags = POINTER_FLAG_UP | POINTER_FLAG_CANCELED
-                elif k in _multiples and key in k:
+                elif key in k:
+                    pti.pointerInfo.pointerFlags = POINTER_FLAG_CANCELED | POINTER_FLAG_UP
                     multiples_to_remove.append(k)
-                    if len(active_touches) == 1:
-                        pti.pointerInfo.pointerFlags = POINTER_FLAG_UP | POINTER_FLAG_INRANGE
-                    else:
-                        pti.pointerInfo.pointerFlags = POINTER_FLAG_UP | POINTER_FLAG_CANCELED
+                    for m in set(k) - {key}:
+                        npti = make_touch_info(m)
+                        npti.pointerInfo.pointerFlags = (
+                            POINTER_FLAG_DOWN | POINTER_FLAG_INRANGE | POINTER_FLAG_INCONTACT
+                        )
+                        active_touches[m] = npti
+                        pressed_keys.add(m)
                 else:
                     pti.pointerInfo.pointerFlags = (
                         POINTER_FLAG_UPDATE | POINTER_FLAG_INRANGE | POINTER_FLAG_INCONTACT
                     )
             inject_contacts(list(active_touches.values()))
             # remove the lifted contact
-            del active_touches[key]
+            if key in active_touches:
+                del active_touches[key]
+                pressed_keys.remove(key)
 
             for k in multiples_to_remove:
                 del active_touches[k]
                 pressed_keys.remove(k)
-            
-            pressed_keys.remove(key)
+
+            print(active_touches, pressed_keys)
 
 # prepare the updater thread placeholder
 updater_thread = threading.Thread(target=update_loop, daemon=True)
