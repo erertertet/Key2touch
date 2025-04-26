@@ -14,7 +14,7 @@ def update_loop(interval: float = 0.05):
     # TODO: quit the loop depending on main worker thread
     while True:
         time.sleep(interval)
-        if main_thread is None or not main_thread.is_alive():
+        if ending:
             break
         with touch_lock:
             for pti in active_touches.values():
@@ -117,7 +117,7 @@ key_position: dict[str | tuple[str, ...], tuple[int, int]] = {}
 active_touches: dict[str | tuple[str, ...], Pointer_Touch_Info] = {}
 touch_lock = threading.Lock()
 main_thread: threading.Thread | None = None
-
+ending = False
 
 def main(mapping_file: str, target: str):
     """Main function to set up the touch injection and keyboard hooks."""
@@ -140,7 +140,15 @@ def main(mapping_file: str, target: str):
 
     # hook into global keyboard events
     keyboard.hook(on_key_event)
-    keyboard.wait()
+    keyboard.wait("ctrl+q")  # wait for Ctrl+Q to exit
+
+    global ending
+    ending = True  # signal the updater thread to stop
+
+    keyboard.unhook_all()
+    updater_thread.join()
+
+    print("mapper stopped")
 
 
 if __name__ == "__main__":

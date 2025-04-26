@@ -1,5 +1,4 @@
 import os
-import subprocess
 import test
 
 cur_file = None
@@ -35,5 +34,5 @@ while True:
         cur_file = temp
     
     elif cmd == "start":
-        # TODO: not quite working yet
-        test.main()
+        print("press Ctrl+Q to stop the mapper")
+        test.main("shadow.txt", "Shadow Fight 2")
