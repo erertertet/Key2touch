@@ -16,13 +16,15 @@ inited = False
 # Load and initialize touch injection
 user32 = ctypes.windll.user32
 user32.InjectTouchInput.argtypes = (UINT, ctypes.POINTER(Pointer_Touch_Info))
-user32.InjectTouchInput.restype  = BOOL
+user32.InjectTouchInput.restype = BOOL
+
 
 def init_values(key2pos: dict[str, tuple[int, int]]):
     """Initialize global variables for touch injection."""
     global _multiples, pointer_ids
-    _multiples = {key for key, pos in key2pos.items() if isinstance(key, tuple)}
+    _multiples = {key for key in key2pos.keys() if isinstance(key, tuple)}
     pointer_ids = {key: idx for idx, key in enumerate(key2pos)}
+
 
 def is_foreground_target() -> bool:
     hwnd = user32.GetForegroundWindow()
@@ -31,6 +33,7 @@ def is_foreground_target() -> bool:
     user32.GetWindowTextW(hwnd, buf, length + 1)
     return buf.value == TARGET
 
+
 def make_touch_info(key: str) -> Pointer_Touch_Info:
     """Create a POINTER_TOUCH_INFO for key’s mapped position."""
     x, y = KEY_POSITION[key]
@@ -38,14 +41,15 @@ def make_touch_info(key: str) -> Pointer_Touch_Info:
     pi = Pointer_Info(
         pointerType=Const.pt_touch,
         pointerId=pid,
-        ptPixelLocation=POINT(x, y)  # other fields default to zero
+        ptPixelLocation=POINT(x, y),  # other fields default to zero
     )
     return Pointer_Touch_Info(
         pointerInfo=pi,
         touchFlags=Const.none,
         touchMask=Const.mask_all,
-        rcContact=RECT(x-5, y-5, x+5, y+5)  # contact area
+        rcContact=RECT(x - 5, y - 5, x + 5, y + 5),  # contact area
     )
+
 
 def inject_contacts(contacts: list[Pointer_Touch_Info]):
     global inited
@@ -60,7 +64,12 @@ def inject_contacts(contacts: list[Pointer_Touch_Info]):
 
     if not inited:
         if not user32.InitializeTouchInjection(len(KEY_POSITION), 1):
-            raise OSError(f"InitializeTouchInjection failed: {ctypes.FormatError(ctypes.GetLastError())}")
+            raise OSError(
+                (
+                    "InitializeTouchInjection failed: ",
+                    f"{ctypes.FormatError(ctypes.GetLastError())}",
+                )
+            )
         inited = True
     if count == 1 and contacts[0].pointerInfo.pointerFlags & Const.up:
         inited = False
@@ -70,6 +79,7 @@ def inject_contacts(contacts: list[Pointer_Touch_Info]):
     if not user32.InjectTouchInput(count, byref(arr[0])):
         err = ctypes.GetLastError()
         print(f"InjectTouchInput failed: {ctypes.FormatError(err)}")
+
 
 def update_loop(interval: float = 0.05):
     """
@@ -85,6 +95,7 @@ def update_loop(interval: float = 0.05):
                     Const.update | Const.in_range | Const.in_contact
                 )
             inject_contacts(list(active_touches.values()))
+
 
 def on_key_event(event):
     # TODO refactor out the key function
@@ -105,9 +116,11 @@ def on_key_event(event):
                 pti.pointerInfo.pointerFlags = (
                     Const.update | Const.in_range | Const.in_contact
                 )
-            
+
             for multiple_key in _multiples:
-                if key in multiple_key and set(multiple_key).issubset(set(active_touches.keys()) | {key}):
+                if key in multiple_key and set(multiple_key).issubset(
+                    set(active_touches.keys()) | {key}
+                ):
                     pti = make_touch_info(multiple_key)
                     pti.pointerInfo.pointerFlags = (
                         Const.down | Const.in_range | Const.in_contact
@@ -118,12 +131,12 @@ def on_key_event(event):
                         active_touches[m].pointerInfo.pointerFlags = (
                             Const.canceled | Const.up
                         )
-                    
+
                     inject_contacts(list(active_touches.values()))
-                    
+
                     for m in set(multiple_key) - {key}:
                         del active_touches[m]
-                    
+
                     return
 
             # new → DOWN
@@ -133,7 +146,6 @@ def on_key_event(event):
             )
             active_touches[key] = pti
             inject_contacts(list(active_touches.values()))
-
 
     elif event.event_type == "up":
         for k in active_touches.keys():
@@ -191,6 +203,7 @@ def main(mapping_file: str, target: str):
     # hook into global keyboard events
     keyboard.hook(on_key_event)
     keyboard.wait()
+
 
 if __name__ == "__main__":
     main("shadow.txt", "Shadow Fight 2")
