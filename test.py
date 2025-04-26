@@ -71,8 +71,6 @@ class POINTER_TOUCH_INFO(Structure):
                 temp.append(flagname)
         return " | ".join(temp) if temp else "0"
 
-
-
 # --- Load config file ---
 parser = argparse.ArgumentParser()
 parser.add_argument("-f", "--file",)
@@ -81,13 +79,13 @@ parser.add_argument("-f", "--file",)
 args = parser.parse_args()
 filename = args.file
 
-# --- Your key→screen‐coords mapping ---
-key_positions = literal_eval(open(f"mappings/{filename}", "r").read())
+KEY_POSITION = literal_eval(open(f"mappings/{filename}", "r").read())
+TARGET = "Shadow Fight 2"
 
-_multiples = {key: pos for key, pos in key_positions.items() if isinstance(key, tuple)}
+_multiples = {key: pos for key, pos in KEY_POSITION.items() if isinstance(key, tuple)}
 
 # Unique pointer ID per key
-pointer_ids = {key: idx for idx, key in enumerate(key_positions)}
+pointer_ids = {key: idx for idx, key in enumerate(KEY_POSITION)}
 
 # Track pressed keys (to suppress auto-repeat) & active touches
 pressed_keys = set()
@@ -97,14 +95,19 @@ inited = False
 
 # Load and initialize touch injection
 user32 = ctypes.windll.user32
-if not user32.InitializeTouchInjection(len(key_positions), 1):
-    raise OSError(f"InitializeTouchInjection failed: {ctypes.FormatError(ctypes.GetLastError())}")
 user32.InjectTouchInput.argtypes = (UINT, ctypes.POINTER(POINTER_TOUCH_INFO))
 user32.InjectTouchInput.restype  = BOOL
 
+def is_foreground_target() -> bool:
+    hwnd = user32.GetForegroundWindow()
+    length = user32.GetWindowTextLengthW(hwnd)
+    buf = ctypes.create_unicode_buffer(length + 1)
+    user32.GetWindowTextW(hwnd, buf, length + 1)
+    return buf.value == TARGET
+
 def make_touch_info(key: str) -> POINTER_TOUCH_INFO:
     """Create a POINTER_TOUCH_INFO for key’s mapped position."""
-    x, y = key_positions[key]
+    x, y = KEY_POSITION[key]
     pid = pointer_ids[key]
     pi = POINTER_INFO(
         pointerType=PT_TOUCH,
@@ -124,15 +127,15 @@ def inject_contacts(contacts: list[POINTER_TOUCH_INFO]):
     count = len(contacts)
     if count == 0:
         return
-    
-    print(contacts)
+
+    if not is_foreground_target():
+        return
+
     if not inited:
-        print("Initializing touch injection...")
-        if not user32.InitializeTouchInjection(len(key_positions), 1):
+        if not user32.InitializeTouchInjection(len(KEY_POSITION), 1):
             raise OSError(f"InitializeTouchInjection failed: {ctypes.FormatError(ctypes.GetLastError())}")
         inited = True
     if count == 1 and contacts[0].pointerInfo.pointerFlags & POINTER_FLAG_UP:
-        print("final key is up")
         inited = False
     ArrayType = POINTER_TOUCH_INFO * count
     arr = ArrayType(*contacts)
@@ -157,7 +160,7 @@ def update_loop(interval: float = 0.05):
 
 def on_key_event(event):
     key = event.name
-    if key not in key_positions:
+    if key not in KEY_POSITION:
         return
 
     if event.event_type == "down":
@@ -207,12 +210,6 @@ def on_key_event(event):
             inject_contacts(list(active_touches.values()))
 
             pressed_keys.add(key)
-
-        # start the updater thread (if not already)
-        # global updater_thread
-        # if not updater_thread.is_alive():
-        #     updater_thread = threading.Thread(target=update_loop, daemon=True)
-        #     updater_thread.start()
 
     elif event.event_type == "up":
         for k in pressed_keys:
