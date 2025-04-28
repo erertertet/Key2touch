@@ -37,7 +37,9 @@ pip install -r requirements.txt
 
 ## Usage
 ### Method 1
-[walk through video](https://youtu.be/LenXAZzfPGA)
+
+https://github.com/user-attachments/assets/1549d923-ae3b-4b23-acbb-277e3c6e94bd
+
 1. download `kt_shell.exe` from releases
 2. put it into a prefered folder and double click it to start
 
