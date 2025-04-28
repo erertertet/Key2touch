@@ -8,6 +8,13 @@ A Windows utility for simulating touch events via custom keyboard mappings.
 - Target a specific application window for touch injection  
 - Command‑line interface with quickstart support  
 
+## Getting started
+
+https://github.com/user-attachments/assets/1549d923-ae3b-4b23-acbb-277e3c6e94bd
+
+1. download `kt_shell.exe` from releases
+2. put it into a prefered folder and double click it to start
+
 ## Directory Structure
 ```
 Key2touch/
@@ -38,10 +45,7 @@ pip install -r requirements.txt
 ## Usage
 ### Method 1
 
-https://github.com/user-attachments/assets/1549d923-ae3b-4b23-acbb-277e3c6e94bd
-
-1. download `kt_shell.exe` from releases
-2. put it into a prefered folder and double click it to start
+Download executable and use as described above
 
 ### Method 2
 1. Prepare or edit a mapping file in the `mappings/` directory  
