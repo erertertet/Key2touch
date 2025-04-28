@@ -15,18 +15,6 @@ https://github.com/user-attachments/assets/1549d923-ae3b-4b23-acbb-277e3c6e94bd
 1. download `kt_shell.exe` from [releases](https://github.com/erertertet/Key2touch/releases/)
 2. put it into a prefered folder and double click it to start
 
-## Directory Structure
-```
-Key2touch/
-├─ mappings/           # Mapping files (.txt)
-├─ utils.py            # Utility functions and Win32 Touch API wrappers
-├─ test.py             # Core logic: key hooks and touch injection
-├─ kt_shell.py         # Command‑line shell for managing mappings
-├─ writer.py           # Helper script for creating new mapping files
-├─ quickstart.json     # Quickstart configuration (auto‑generated)
-└─ README.md           # Project documentation
-```
-
 ## Requirements
 - Windows 10 or later
 
