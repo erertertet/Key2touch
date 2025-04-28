@@ -14,11 +14,14 @@ while True:
 
     if cmd == "help":
         print("Available commands:")
-        print("  help - Show this help message")
-        print("  exit - Exit the program")
-        print("  list - List all active touches")
-        print("  inject - Inject a touch event")
-        print("  remove - Remove a touch event")
+        print("  - help: Show this help message")
+        print("  - list: List all mapping files")
+        print("  - load: Load a mapping file")
+        print("  - create: Create a new mapping file")
+        print("  - start: Start the mapper")
+        print("  - qs: Quickstart the last mapping file")
+        print("  - exit: Exit the program")
+
     
     elif cmd == "list":
         lst_of_files = os.listdir("mappings")
@@ -68,5 +71,9 @@ while True:
 
         test.main(filename, target)
     
-    elif cmd == "map":
+    elif cmd == "create":
         writer.main()
+    
+    elif cmd == "exit":
+        print("Exiting...")
+        break

@@ -12,6 +12,7 @@ def update_loop(interval: float = 0.05):
     so the system doesn’t cancel your press-and-hold.
     """
     # TODO: quit the loop depending on main worker thread
+    global ending
     while True:
         time.sleep(interval)
         if ending:
@@ -116,16 +117,18 @@ def on_key_event(event: keyboard.KeyboardEvent):
 key_position: dict[str | tuple[str, ...], tuple[int, int]] = {}
 active_touches: dict[str | tuple[str, ...], Pointer_Touch_Info] = {}
 touch_lock = threading.Lock()
-main_thread: threading.Thread | None = None
-ending = False
+ending: bool = False
+
 
 def main(mapping_file: str, target: str):
     """Main function to set up the touch injection and keyboard hooks."""
-    global key_position, TARGET, _multiples, pointer_ids, main_thread
+    global key_position, TARGET, _multiples, pointer_ids
+    global ending, active_touches
+
+    ending = False  # reset the ending flag
+    active_touches = {}  # reset the active touches
 
     TARGET = target
-
-    main_thread = threading.current_thread()
 
     key_position = literal_eval(open(f"mappings/{mapping_file}", "r").read())
 
